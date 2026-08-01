@@ -8,6 +8,7 @@
 #define UART0_DR (*(volatile uint32_t *)(UART0_BASE + 0x000))
 #define UART0_FR (*(volatile uint32_t *)(UART0_BASE + 0x018))
 #define UART0_FR_TXFF (1u << 5)
+#define UART0_FR_RXFE (1u << 4)
 #define UART0_IBRD (*(volatile uint32_t *)(UART0_BASE + 0x024))
 #define UART0_FBRD (*(volatile uint32_t *)(UART0_BASE + 0x028))
 #define UART0_CR (*(volatile uint32_t *)(UART0_BASE + 0x030))
@@ -15,17 +16,24 @@
 #define UART0_CR_TXE_EN (1u << 8)
 #define UART0_CR_RXE_EN (1u << 9)
 #define UART0_LCR_H (*(volatile uint32_t *)(UART0_BASE + 0x02c))
+#define UART0_LCR_H_FEN (1u<<4)
+#define UART0_LCR_H_WLEN (3u<<5)
 
-void uart_init(void);
+void uart_init(void);   //initialisation of uart 
 
-void uart_putc(char);
+void uart_putc(char);   // transmit character 
+
+char uart_getc(void);   // receive character
 
 int main(void)
 {
     uart_init();
+    char c;
     while (1)
     {
-        uart_putc('A');
+     c = uart_getc();
+     uart_putc(c);
+
     }
 }
 
@@ -39,7 +47,7 @@ void uart_init(void)
     UART0_IBRD = 67;
     UART0_FBRD = 52;
 
-    UART0_LCR_H = (3u << 5) | (1u << 4);  //8N1 8data, No parity, 1 stop bit, enable fifo
+    UART0_LCR_H = UART0_LCR_H_WLEN | UART0_LCR_H_FEN;  //8N1 8data, No parity, 1 stop bit, enable fifo
 
     UART0_CR = UART0_CR_UARTEN | UART0_CR_TXE_EN | UART0_CR_RXE_EN;
 }
@@ -51,4 +59,13 @@ void uart_putc(char c)
         // wait buffer full
     }
     UART0_DR = c;
+}
+
+char uart_getc(void){
+    while ((UART0_FR & UART0_FR_RXFE) != 0){
+        //wait buffer empty
+    }
+    uint32_t data = UART0_DR;
+
+ return (char)(data & 0x00ff);
 }

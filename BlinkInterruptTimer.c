@@ -18,7 +18,6 @@
 #define ARM_CORTEX_M0_BASE (0xe0000000u)
 #define NVIC_ISER (*(volatile uint32_t *)(ARM_CORTEX_M0_BASE + 0xe100))
 
-uint64_t read_timer(void);
 
 void isr_irq0(void);
 

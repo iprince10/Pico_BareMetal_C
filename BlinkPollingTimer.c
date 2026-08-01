@@ -1,4 +1,4 @@
-//this code is from my bare metal practice
+// this code is from my bare metal practice
 
 #include <stdint.h>
 
@@ -7,16 +7,13 @@
 #define SIO_GPIO25_CTRL (*(volatile uint32_t *)(0x400140CC))
 #define SIO_GPIO_OE (*(volatile uint32_t *)(0xd0000020))
 #define SIO_GPIO_OUT (*(volatile uint32_t *)(0xd0000010))
-#define TIMER_BASE 0x40054000
+#define TIMER_BASE 0x40054000u
 #define TIME_HR (*(volatile uint32_t *)(TIMER_BASE + 0x08))
 #define TIME_LR (*(volatile uint32_t *)(TIMER_BASE + 0x0c))
 
 uint64_t read_timer(void);
 
 void delay_ms(uint64_t milliseconds);
-
-// void delay(volatile uint32_t);
-
 
 int main(void)
 {
@@ -25,20 +22,12 @@ int main(void)
 
     while (1)
     {
-        SIO_GPIO_OUT |= (1u << LED_PIN); //set using or
+        SIO_GPIO_OUT |= (1u << LED_PIN); // set using or
         delay_ms(500);
-        SIO_GPIO_OUT &= ~(1u << LED_PIN); //clear using and not 
+        SIO_GPIO_OUT &= ~(1u << LED_PIN); // clear using and not
         delay_ms(500);
     }
 }
-
-// void delay(volatile uint32_t count)
-// {
-//     while (count--)
-//     {
-//         __asm volatile("nop");
-//     }
-// }
 
 uint64_t read_timer(void)
 {
@@ -50,17 +39,16 @@ uint64_t read_timer(void)
         high2 = TIME_HR;
     } while (high1 != high2);
 
-    return ((uint64_t)high2<<32) | low;
+    return ((uint64_t)high2 << 32) | low;
 }
 
-
-void delay_ms(uint64_t milliseconds){
+void delay_ms(uint64_t milliseconds)
+{
     uint64_t start = read_timer();
     uint64_t target_us = milliseconds * 1000;
 
-    while ((read_timer()-start)<target_us)
+    while ((read_timer() - start) < target_us)
     {
-        //wait;
+        // wait;
     }
-    
 }
