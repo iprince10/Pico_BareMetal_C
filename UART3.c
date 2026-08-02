@@ -49,6 +49,11 @@ void uart1_init(void); // initialisation of uart1
 void uart0_putc(char); // transmit character
 char uart1_getc(void); // receive character
 
+void uart0_puts(const char *);
+void uart1_gets(char *, int);
+
+int string_compare(const char *, const char *);
+
 int main(void)
 {
     uart0_init();
@@ -57,32 +62,15 @@ int main(void)
     SIO_GPIO25_CTRL = GPIO_FUNC_SIO;
     SIO_GPIO25_OE |= (1u << LED_PIN);
 
-    char send[5] = "HELLO";
-    char receive[5];
+    const char send[] = "HELLO";
+    char receive[6];
 
-    for (int i = 0; i < 5; i++)
-    {
-        uart0_putc(send[i]);
-    }
+    uart0_puts(send);
 
-    for (int i = 0; i < 5; i++)
-    {
-        receive[i] = uart1_getc();
-    }
+    uart1_gets(receive, 5);
 
-    int match = 1;
-    for (int i = 0; i < 5; i++)
-    {
-        if (send[i] != receive[i])
-        {
-            match = 0;
-            break;
-        }
-    }
-
-    if (match)
-    {
-        SIO_GPIO25_OUT |= (1u << LED_PIN);
+    if(string_compare(send , receive)){
+        SIO_GPIO25_OUT |= (1u<<LED_PIN);
     }
 
     while (1)
@@ -135,4 +123,38 @@ char uart1_getc(void)
     }
     uint32_t data = UART1_DR;
     return (char)(data & 0x00ff);
+}
+
+void uart0_puts(const char *send)
+{
+
+    while (*send != '\0')
+    {
+        uart0_putc(*send);
+        send++;
+    }
+}
+
+void uart1_gets(char *receive, int length)
+{
+    while (length--)
+    {
+        *receive = uart1_getc();
+        receive++;
+    }
+    *receive = '\0';
+}
+
+int string_compare(const char *send, const char *receive)
+{
+    while (*send != '\0'  && *receive != '\0')
+    {
+        if (*send != *receive)
+        {
+            return 0;
+        }
+            send++;
+            receive++;
+    }
+    return (*send == '\0' && *receive == '\0');
 }
