@@ -7,10 +7,6 @@
 #define SIO_GPIO25_OE (*(volatile uint32_t *)(SIO_GPIO25_BASE + 0x20))
 #define SIO_GPIO25_OUT (*(volatile uint32_t *)(SIO_GPIO25_BASE + 0x10))
 
-#define TIMER_BASE 0x40054000u
-#define TIME_HR (*(volatile uint32_t *)(TIMER_BASE + 0x08))
-#define TIME_LR (*(volatile uint32_t *)(TIMER_BASE + 0x0c))
-
 #define IO_BANK0_BASE 0x40014000u
 
 #define GPIO0_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x004))
