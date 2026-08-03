@@ -73,7 +73,7 @@ void uart0_puts(const char *);
 void isr_uart1(void);
 
 int uart1_getc(char *c);
-void uart1_gets(char *receive, int);
+int uart1_gets(char *receive, int);
 
 int string_compare(const char *, const char *);
 
@@ -98,11 +98,13 @@ int main(void)
     {
         uart0_puts(send);
 
-        uart1_gets(receive, 5);
-
-        if (string_compare(send, receive))
+        if (uart1_gets(receive, 5))
         {
-            SIO_GPIO25_OUT ^= (1u << LED_PIN);
+
+            if (string_compare(send, receive))
+            {
+                SIO_GPIO25_OUT ^= (1u << LED_PIN);
+            }
         }
         delay_ms(500);
     }
@@ -213,19 +215,22 @@ int string_compare(const char *send, const char *receive)
     return (*send == '\0' && *receive == '\0');
 }
 
-void uart1_gets(char *receive, int length)
+int uart1_gets(char *receive, int length)
 {
+    static int index = 0;
     char c;
-    while (length > 0)
+    if (uart1_getc(&c))
     {
-        if (uart1_getc(&c))
+        receive[index] = c;
+        index++;
+        if (index == length)
         {
-            *receive = c;
-            receive++;
-            length--;
+            receive[index] = '\0';
+            index = 0;
+            return 1;
         }
     }
-    *receive = '\0';
+    return 0;
 }
 
 uint64_t read_timer(void)
