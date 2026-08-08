@@ -40,9 +40,11 @@
 #define UART1_LCR_H_WLEN (3u << 5)
 #define UART1_IMSC (*(volatile uint32_t *)(UART1_BASE + 0x038))
 #define UART1_IMSC_RXIM (1u << 4)
+#define UART1_IMSC_RTIM (1u << 6)
 #define UART1_RIS (*(volatile uint32_t *)(UART1_BASE + 0x03c))
 #define UART1_ICR (*(volatile uint32_t *)(UART1_BASE + 0x044))
 #define UART1_ICR_RXIC (1u << 4)
+#define UART1_ICR_RTIC (1u << 6)
 
 #define ARM_CORTEX_M0_BASE (0xe0000000u)
 #define NVIC_ISER (*(volatile uint32_t *)(ARM_CORTEX_M0_BASE + 0xe100))
@@ -61,8 +63,8 @@ typedef struct
 
 volatile RingBuffer uart1_rx_buffer = {0};
 
-int ring_buffer_put(RingBuffer *, char);
-int ring_buffer_get(RingBuffer *, char *);
+int ring_buffer_put(volatile RingBuffer *, char);
+int ring_buffer_get(volatile RingBuffer *, char *);
 
 void uart0_init(void);
 void uart1_init(void);
@@ -70,7 +72,7 @@ void uart1_init(void);
 void uart0_putc(char);
 void uart0_puts(const char *);
 
-void isr_uart1(void);
+void isr_irq21(void);
 
 int uart1_getc(char *c);
 int uart1_gets(char *receive, int);
@@ -137,7 +139,7 @@ void uart1_init(void)
 
     UART1_CR = UART1_CR_UARTEN | UART1_CR_RXE_EN;
 
-    UART1_IMSC |= UART1_IMSC_RXIM;
+    UART1_IMSC |= UART1_IMSC_RXIM | UART1_IMSC_RTIM;
 
     NVIC_ISER |= NVIC_ISER_UART1_IRQ;
 }
@@ -162,7 +164,7 @@ void uart0_puts(const char *send)
 }
 
 // writing a byte to the buffer
-int ring_buffer_put(RingBuffer *rb, char c)
+int ring_buffer_put(volatile RingBuffer *rb, char c)
 {
     uint8_t next_head = (rb->head + 1) % 16;
 
@@ -177,7 +179,7 @@ int ring_buffer_put(RingBuffer *rb, char c)
 }
 
 // read a byte out of buffer
-int ring_buffer_get(RingBuffer *rb, char *c)
+int ring_buffer_get(volatile RingBuffer *rb, char *c)
 {
     if (rb->tail == rb->head)
     {
@@ -189,11 +191,14 @@ int ring_buffer_get(RingBuffer *rb, char *c)
     return 1;
 }
 
-void isr_uart1(void)
+void isr_irq21(void)
 {
-    char c = (char)(UART1_DR & 0x00ff);
-    ring_buffer_put(&uart1_rx_buffer, c);
-    UART1_ICR = UART1_ICR_RXIC;
+    while ((UART1_FR & UART1_FR_RXFE) == 0)
+    {
+        char c = (char)(UART1_DR & 0x00ff);
+        ring_buffer_put(&uart1_rx_buffer, c);
+    }
+    UART1_ICR = UART1_ICR_RXIC | UART1_ICR_RTIC;
 }
 
 int uart1_getc(char *c)
