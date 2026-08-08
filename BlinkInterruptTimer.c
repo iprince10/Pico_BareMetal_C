@@ -18,8 +18,9 @@
 #define ARM_CORTEX_M0_BASE (0xe0000000u)
 #define NVIC_ISER (*(volatile uint32_t *)(ARM_CORTEX_M0_BASE + 0xe100))
 
-
 void isr_irq0(void);
+
+static uint32_t volatile next_alarm;
 
 int main(void)
 {
@@ -28,10 +29,10 @@ int main(void)
 
     INTE |= (1u << 0);
 
-    uint32_t current_time = TIME_LR; 
-    ALARM0 = current_time + BLINK_PERIOD_US;
+    next_alarm = TIME_LR + BLINK_PERIOD_US;
+    ALARM0 = next_alarm;
 
-    NVIC_ISER |= (1u<<0);
+    NVIC_ISER |= (1u << 0);
 
     __asm volatile("cpsie i");
 
@@ -48,6 +49,6 @@ void isr_irq0(void)
 
     SIO_GPIO_OUT ^= (1u << LED_PIN);
 
-    uint32_t current_time = TIME_LR; 
-    ALARM0 = current_time + BLINK_PERIOD_US;
+    next_alarm += BLINK_PERIOD_US;
+    ALARM0 = next_alarm;
 }
