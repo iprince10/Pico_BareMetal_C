@@ -1,6 +1,22 @@
 #include <stdint.h>
 
 #define IO_BANK0_BASE 0x40014000u
+#define PAD_BANK0_BASE 0x4001c000u
+
+#define SIO_BASE 0xd0000000u
+#define SIO_OE (*(volatile uint32_t *)(SIO_BASE + 0x20))
+#define SIO_OUT (*(volatile uint32_t *)(SIO_BASE + 0x10))
+
+#define LED_PIN_25 25u
+#define GPIO_FUNC_SIO 5u
+#define GPIO25_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x0cc))
+
+#define GPIO3_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x01c))
+#define PAD_GPIO3_CTRL (*(volatile uint32_t *)(PAD_BANK0_BASE+ 0x10))
+#define PAD_GPIO3_CTRL_IE (1u<<6)
+#define PAD_GPIO3_CTRL_PDE (1u<<2)
+#define PAD_GPIO3_CTRL_SCHMITT (1u<<1)
+
 
 #define GPIO0_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x004))
 #define UART0_FUNC 2u
@@ -17,9 +33,19 @@
 #define UART0_LCR_H_FEN (1u << 4)
 #define UART0_LCR_H_WLEN (3u << 5)
 
+#define PROC0_INTR0 (*(volatile uint32_t *)(IO_BANK0_BASE + 0x0f0))
+#define PROC0_INTE0 (*(volatile uint32_t *)(IO_BANK0_BASE + 0x100))
+#define PROC0_INTS0 (*(volatile uint32_t *)(IO_BANK0_BASE + 0x120))
+#define PROC0_INTE0_GPIO3_EDGE_IRQ_EN (1u << 15)
+#define PROC0_INTR0_GPIO3_CLEAR (1u<<15)
+
 #define TIMER_BASE 0x40054000u
 #define TIME_HR (*(volatile uint32_t *)(TIMER_BASE + 0x08))
 #define TIME_LR (*(volatile uint32_t *)(TIMER_BASE + 0x0c))
+
+#define ARM_CORTEX_NVIC_BASE (0xe0000000u)
+#define NVIC_ISER (*(volatile uint32_t *)(ARM_CORTEX_NVIC_BASE + 0xe100))
+#define NVIC_IO_IRQ_BANK0_EN (1u << 13)
 
 uint64_t read_timer(void);
 void delay_ms(uint64_t milliseconds);
@@ -29,21 +55,38 @@ void uart0_putc(char);
 void uart0_puts(const char *);
 void uart0_putnum(uint64_t num);
 
+void gpio3_init_input(void);
+
+void isr_irq13(void);
+
 int main(void)
 {
     uart0_init();
+    gpio3_init_input();
 
-    while (1)
-    {
-        uint64_t current_time = read_timer();
-        delay_ms(50);
-        uint64_t future_time = read_timer();
+    GPIO25_CTRL = GPIO_FUNC_SIO;
+    SIO_OE |= (1u << LED_PIN_25);  //output enable for led pin gpio 25
 
-        uint64_t diff = future_time - current_time;
-        uart0_puts("diff = ");
-        uart0_putnum(diff);
-        uart0_puts("\r\n");
+    uart0_puts("Ready\r\n");
+    __asm volatile ("cpsie i");
+    while(1){
+        delay_ms(1000);
+        uart0_puts("alive\r\n");
     }
+}
+
+void gpio3_init_input(void)
+{
+    GPIO3_CTRL = GPIO_FUNC_SIO;
+    SIO_OE &= ~(1u << 3);  //input enable for gpio 3 
+    PAD_GPIO3_CTRL = PAD_GPIO3_CTRL_IE | PAD_GPIO3_CTRL_PDE |PAD_GPIO3_CTRL_SCHMITT;
+    PROC0_INTE0 |= PROC0_INTE0_GPIO3_EDGE_IRQ_EN; 
+    NVIC_ISER |= NVIC_IO_IRQ_BANK0_EN;
+}
+
+void isr_irq13(void){
+    PROC0_INTR0 = PROC0_INTR0_GPIO3_CLEAR;
+    SIO_OUT ^= (1u<<LED_PIN_25); // toggle led pin gpio 25
 }
 
 void uart0_init(void)
