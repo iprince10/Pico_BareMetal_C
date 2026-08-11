@@ -60,6 +60,11 @@ void gpio3_init_input(void);
 
 void isr_irq13(void);
 
+volatile uint8_t rise_captured = 0;
+volatile uint64_t rise_time = 0;
+volatile uint64_t fail_time = 0;
+volatile uint8_t ready_flag = 0;
+
 int main(void)
 {
     uart0_init();
@@ -74,6 +79,24 @@ int main(void)
     {
         delay_ms(1000);
         uart0_puts("alive\r\n");
+
+        __asm volatile("cpsid i");
+        __asm volatile("" ::: "memory");
+        uint64_t r = rise_time, f = fail_time;
+        uint8_t flag = ready_flag;
+        ready_flag = 0;
+        __asm volatile("" ::: "memory");
+        __asm volatile("cpsie i");
+
+        if (flag)
+        {
+            uint64_t duration = f - r;
+            if (duration > 100)
+            { // filter noise
+                uart0_putnum(duration);
+                uart0_puts(" us\r\n");
+            }
+        }
     }
 }
 
@@ -93,11 +116,18 @@ void isr_irq13(void)
     {
         PROC0_INTR0 = PROC0_INTR0_GPIO3_HIGH_CLEAR;
         SIO_OUT ^= (1u << LED_PIN_25);
+        rise_time = read_timer();
+        rise_captured = 1;
     }
     else if (PROC0_INTS0 & (1u << 14))
     {
         PROC0_INTR0 = PROC0_INTR0_GPIO3_LOW_CLEAR;
         SIO_OUT ^= (1u << LED_PIN_25);
+        if(rise_captured){
+        fail_time = read_timer();
+        ready_flag = 1;
+        }
+        rise_captured = 0;
     }
     else
     {
