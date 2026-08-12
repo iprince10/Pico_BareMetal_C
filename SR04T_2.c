@@ -113,8 +113,22 @@ int main(void)
         {
             uint64_t duration_us = f - r;
             uint64_t distance_cm = duration_us / 58;
-            uart0_putnum(distance_cm);
-            uart0_puts(" cm\r\n");
+
+            if (distance_cm > 500)
+            {
+                // sensor's timeout artifact -> water too close to measure -> tank full
+                uart0_puts("TANK FULL\r\n");
+            }
+            else if (distance_cm <= 20)
+            {
+                // shouldn't normally happen (sensor floor), but treat as full too, just in case
+                uart0_puts("TANK FULL\r\n");
+            }
+            else
+            {
+                uart0_putnum(distance_cm);
+                uart0_puts(" cm\r\n");
+            }
         }
         else
         {
@@ -163,15 +177,12 @@ void isr_irq13(void)
     if (PROC0_INTS0 & (1u << 15))
     {
         PROC0_INTR0 = PROC0_INTR0_GPIO3_HIGH_CLEAR;
-        SIO_OUT ^= (1u << LED_PIN_25);
         rise_time = read_timer();
         rise_captured = 1;
     }
     else if (PROC0_INTS0 & (1u << 14))
     {
         PROC0_INTR0 = PROC0_INTR0_GPIO3_LOW_CLEAR;
-        SIO_OUT ^= (1u << LED_PIN_25);
-
         if (rise_captured)
         {
             fail_time = read_timer();
