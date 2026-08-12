@@ -84,11 +84,23 @@ int main(void)
 
     uart0_puts("Ready\r\n");
     __asm volatile("cpsie i");
+
     while (1)
     {
-        sr04t_send_trigger();
-        delay_ms(100);
+        // Reset state for clean cycle
+        __asm volatile("cpsid i");
+        __asm volatile("" ::: "memory");
+        rise_captured = 0;
+        ready_flag = 0;
+        rise_time = 0;
+        fail_time = 0;
+        __asm volatile("" ::: "memory");
+        __asm volatile("cpsie i");
 
+        sr04t_send_trigger();
+        delay_ms(100); // wait for echo
+
+        // Read result
         __asm volatile("cpsid i");
         __asm volatile("" ::: "memory");
         uint64_t r = rise_time, f = fail_time;
@@ -97,21 +109,19 @@ int main(void)
         __asm volatile("" ::: "memory");
         __asm volatile("cpsie i");
 
-        if (flag)
+        if (flag && f > r)
         {
             uint64_t duration_us = f - r;
-            if (duration_us > 100)
-            {
-                uint64_t distance_cm = (duration_us / 58);
-                uart0_putnum(distance_cm);
-                uart0_puts(" cm\r\n");
-            }
+            uint64_t distance_cm = duration_us / 58;
+            uart0_putnum(distance_cm);
+            uart0_puts(" cm\r\n");
         }
         else
         {
             uart0_puts("no measurement\r\n");
         }
-        delay_ms(50);
+
+        delay_ms(50); // wait between triggers
     }
 }
 
@@ -161,16 +171,13 @@ void isr_irq13(void)
     {
         PROC0_INTR0 = PROC0_INTR0_GPIO3_LOW_CLEAR;
         SIO_OUT ^= (1u << LED_PIN_25);
+
         if (rise_captured)
         {
-            uint64_t now = read_timer();
-            if ((now - rise_time) > 50)
-            {
-                fail_time = now;
-                ready_flag = 1;
-            }
+            fail_time = read_timer();
+            ready_flag = 1;
+            rise_captured = 0;
         }
-        rise_captured = 0;
     }
     else
     {
