@@ -11,11 +11,13 @@
 #define GPIO_FUNC_SIO 5u
 #define GPIO25_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x0cc))
 
+#define GPIO2_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x014))
+#define PAD_GPIO2_CTRL (*(volatile uint32_t *)(PAD_BANK0_BASE + 0x0c))
 #define GPIO3_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x01c))
 #define PAD_GPIO3_CTRL (*(volatile uint32_t *)(PAD_BANK0_BASE + 0x10))
-#define PAD_GPIO3_CTRL_IE (1u << 6)
-#define PAD_GPIO3_CTRL_PDE (1u << 2)
-#define PAD_GPIO3_CTRL_SCHMITT (1u << 1)
+#define PAD_GPIO_CTRL_IE (1u << 6)
+#define PAD_GPIO_CTRL_PDE (1u << 2)
+#define PAD_GPIO_CTRL_SCHMITT (1u << 1)
 
 #define GPIO0_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x004))
 #define UART0_FUNC 2u
@@ -50,6 +52,7 @@
 
 uint64_t read_timer(void);
 void delay_ms(uint64_t milliseconds);
+void delay_us(uint64_t microseconds);
 
 void uart0_init(void);
 void uart0_putc(char);
@@ -57,6 +60,11 @@ void uart0_puts(const char *);
 void uart0_putnum(uint64_t num);
 
 void gpio3_init_input(void);
+
+void gpio2_init_output(void);
+void gpio2_set_high(void);
+void gpio2_set_low(void);
+void sr04t_send_trigger(void);
 
 void isr_irq13(void);
 
@@ -69,6 +77,7 @@ int main(void)
 {
     uart0_init();
     gpio3_init_input();
+    gpio2_init_output();
 
     GPIO25_CTRL = GPIO_FUNC_SIO;
     SIO_OE |= (1u << LED_PIN_25); // output enable for led pin gpio 25
@@ -77,8 +86,8 @@ int main(void)
     __asm volatile("cpsie i");
     while (1)
     {
-        delay_ms(1000);
-        uart0_puts("alive\r\n");
+        sr04t_send_trigger();
+        delay_ms(100);
 
         __asm volatile("cpsid i");
         __asm volatile("" ::: "memory");
@@ -90,21 +99,50 @@ int main(void)
 
         if (flag)
         {
-            uint64_t duration = f - r;
-            if (duration > 100)
-            { // filter noise
-                uart0_putnum(duration);
-                uart0_puts(" us\r\n");
+            uint64_t duration_us = f - r;
+            if (duration_us > 100)
+            {
+                uint64_t distance_cm = (duration_us / 58);
+                uart0_putnum(distance_cm);
+                uart0_puts(" cm\r\n");
             }
         }
+        else
+        {
+            uart0_puts("no measurement\r\n");
+        }
+        delay_ms(50);
     }
+}
+
+void gpio2_init_output(void)
+{
+    GPIO2_CTRL = GPIO_FUNC_SIO;
+    SIO_OE |= (1u << 2);
+}
+
+void gpio2_set_high(void)
+{
+    SIO_OUT |= (1u << 2);
+}
+
+void gpio2_set_low(void)
+{
+    SIO_OUT &= ~(1u << 2);
+}
+
+void sr04t_send_trigger(void)
+{
+    gpio2_set_high();
+    delay_us(10);
+    gpio2_set_low();
 }
 
 void gpio3_init_input(void)
 {
     GPIO3_CTRL = GPIO_FUNC_SIO;
     SIO_OE &= ~(1u << 3); // input enable for gpio 3
-    PAD_GPIO3_CTRL |= PAD_GPIO3_CTRL_IE | PAD_GPIO3_CTRL_PDE | PAD_GPIO3_CTRL_SCHMITT;
+    PAD_GPIO3_CTRL |= PAD_GPIO_CTRL_IE | PAD_GPIO_CTRL_PDE | PAD_GPIO_CTRL_SCHMITT;
     PROC0_INTE0 |= PROC0_INTE0_GPIO3_EDGE_HIGH_IRQ_EN | PROC0_INTE0_GPIO3_EDGE_LOW_IRQ_EN;
 
     NVIC_ISER |= NVIC_IO_IRQ_BANK0_EN;
@@ -123,9 +161,14 @@ void isr_irq13(void)
     {
         PROC0_INTR0 = PROC0_INTR0_GPIO3_LOW_CLEAR;
         SIO_OUT ^= (1u << LED_PIN_25);
-        if(rise_captured){
-        fail_time = read_timer();
-        ready_flag = 1;
+        if (rise_captured)
+        {
+            uint64_t now = read_timer();
+            if ((now - rise_time) > 50)
+            {
+                fail_time = now;
+                ready_flag = 1;
+            }
         }
         rise_captured = 0;
     }
@@ -207,6 +250,17 @@ void delay_ms(uint64_t milliseconds)
 {
     uint64_t start = read_timer();
     uint64_t target_us = milliseconds * 1000;
+
+    while ((read_timer() - start) < target_us)
+    {
+        // wait;
+    }
+}
+
+void delay_us(uint64_t microseconds)
+{
+    uint64_t start = read_timer();
+    uint64_t target_us = microseconds;
 
     while ((read_timer() - start) < target_us)
     {
