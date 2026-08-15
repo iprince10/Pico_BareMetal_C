@@ -163,19 +163,19 @@ void ili9341_send_init_commands(void)
 
 void ili9341_fill_red(void)
 {
-    ili9341_write_command(0x2A);
+    ili9341_write_command(0x2A);  // column address set 
+    ili9341_write_data(0x00);     // 0
     ili9341_write_data(0x00);
     ili9341_write_data(0x00);
-    ili9341_write_data(0x00);
-    ili9341_write_data(0xEF);
+    ili9341_write_data(0xEF);     // 239
 
-    ili9341_write_command(0x2B);
-    ili9341_write_data(0x00);
+    ili9341_write_command(0x2B);   // row address set
+    ili9341_write_data(0x00);      // 0
     ili9341_write_data(0x00);
     ili9341_write_data(0x01);
-    ili9341_write_data(0x3F);
+    ili9341_write_data(0x3F);      //319
 
-    ili9341_write_command(0x2C);
+    ili9341_write_command(0x2C);  //memory write
 
     for (uint32_t i = 0; i < 76800; i++)
     {

@@ -116,12 +116,11 @@ int main(void)
 
             if (distance_cm > 500)
             {
-                // sensor's timeout artifact -> water too close to measure -> tank full
+                // max distance
                 uart0_puts("TANK FULL\r\n");
             }
             else if (distance_cm <= 20)
             {
-                // shouldn't normally happen (sensor floor), but treat as full too, just in case
                 uart0_puts("TANK FULL\r\n");
             }
             else
