@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include <bitmap.h>
+#include <timer.h>
 
 #define SIO_BASE 0xd0000000u
 #define SIO_GPIO_OE (*(volatile uint32_t *)(SIO_BASE + 0x020))
@@ -36,10 +38,6 @@
 #define SPI0_SSPSR_TNF (1u << 1)
 #define SPI0_SSPCPSR (*(volatile uint32_t *)(SPI0_BASE + 0x010))
 
-#define TIMER_BASE 0x40054000u
-#define TIME_HR (*(volatile uint32_t *)(TIMER_BASE + 0x08))
-#define TIME_LR (*(volatile uint32_t *)(TIMER_BASE + 0x0c))
-
 #define CLOCKS_BASE 0x40008000u
 #define CLK_PERI_CTRL (*(volatile uint32_t *)(CLOCKS_BASE + 0x48))
 #define CLK_PERI_CTRL_ENABLE (1u << 11)
@@ -49,10 +47,6 @@
 #define RESETS_RESET_SPI0 (1u << 16)
 #define RESETS_RESET_DONE (*(volatile uint32_t *)(RESETS_BASE + 0x8))
 
-uint64_t read_timer(void);
-void delay_ms(uint64_t milliseconds);
-void delay_us(uint64_t microseconds);
-
 void ili9341_init();
 void spi0_init();
 void ili9341_hw_reset();
@@ -61,11 +55,14 @@ void ili9341_write_command(uint8_t cmd);
 void ili9341_write_data(uint8_t data);
 void ili9341_send_init_commands();
 void ili9341_fill_red(void);
+void ili9341_draw_char(uint16_t x, uint16_t y, char c, uint16_t fg_color, uint16_t bg_color, uint8_t scale);
 
 int main(void)
 {
     ili9341_init();
     ili9341_fill_red();
+    ili9341_draw_char(10, 20, 'W', 0x0000, 0xFFFF, 2);
+
     while (1)
     {
     }
@@ -155,7 +152,7 @@ void ili9341_send_init_commands(void)
     ili9341_write_data(0x55);
 
     ili9341_write_command(0x36); // memory access orientation
-    ili9341_write_data(0x08);
+    ili9341_write_data(0x48);
 
     ili9341_write_command(0x29); // turn display on
     delay_ms(100);
@@ -163,58 +160,80 @@ void ili9341_send_init_commands(void)
 
 void ili9341_fill_red(void)
 {
-    ili9341_write_command(0x2A);  // column address set 
-    ili9341_write_data(0x00);     // 0
+    ili9341_write_command(0x2A); // column address set
+    ili9341_write_data(0x00);    // 0
     ili9341_write_data(0x00);
     ili9341_write_data(0x00);
-    ili9341_write_data(0xEF);     // 239
+    ili9341_write_data(0xEF); // 239
 
-    ili9341_write_command(0x2B);   // row address set
-    ili9341_write_data(0x00);      // 0
+    ili9341_write_command(0x2B); // row address set
+    ili9341_write_data(0x00);    // 0
     ili9341_write_data(0x00);
     ili9341_write_data(0x01);
-    ili9341_write_data(0x3F);      //319
+    ili9341_write_data(0x3F); // 319
 
-    ili9341_write_command(0x2C);  //memory write
+    ili9341_write_command(0x2C); // memory write
 
     for (uint32_t i = 0; i < 76800; i++)
     {
-        ili9341_write_data(0xF8);
-        ili9341_write_data(0x00);
+        ili9341_write_data(0xFF);
+        ili9341_write_data(0xFF);
     }
 }
 
-uint64_t read_timer(void)
+void ili9341_draw_char(uint16_t x, uint16_t y, char c, uint16_t fg_color, uint16_t bg_color, uint8_t scale)
 {
-    uint32_t high1, low, high2;
-    do
+    int index;
+    if (c >= '0' && c <= '9')
     {
-        high1 = TIME_HR;
-        low = TIME_LR;
-        high2 = TIME_HR;
-    } while (high1 != high2);
-
-    return ((uint64_t)high2 << 32) | low;
-}
-
-void delay_ms(uint64_t milliseconds)
-{
-    uint64_t start = read_timer();
-    uint64_t target_us = milliseconds * 1000;
-
-    while ((read_timer() - start) < target_us)
-    {
-        // wait;
+        index = c - '0';
     }
-}
-
-void delay_us(uint64_t microseconds)
-{
-    uint64_t start = read_timer();
-    uint64_t target_us = microseconds;
-
-    while ((read_timer() - start) < target_us)
+    else if (c >= 'A' && c <= 'Z')
     {
-        // wait;
+        index = c - 'A' + 10;
+    }
+    else
+    {
+        return;
+    }
+
+    uint16_t width = 10 * scale;
+    uint16_t height = 14 * scale;
+
+    // column write
+    ili9341_write_command(0x2A);
+    ili9341_write_data(x >> 8);
+    ili9341_write_data((x & 0xff));
+    ili9341_write_data((x + width - 1) >> 8);
+    ili9341_write_data((x + width - 1) & 0xff);
+
+    // row write
+    ili9341_write_command(0x2B);
+    ili9341_write_data(y >> 8);
+    ili9341_write_data((y & 0xff));
+    ili9341_write_data((y + height - 1) >> 8);
+    ili9341_write_data((y + height - 1) & 0xff);
+
+    // memory write
+    ili9341_write_command(0x2C);
+
+    for (int row = 0; row < height; row++)
+    {
+        uint16_t bitmap_row = row / scale;
+        uint16_t bitmap = font_10x14[index][bitmap_row];
+        for (int col = 0; col < width; col++)
+        {
+            uint16_t bitmap_col = col / scale;
+            if (bitmap & (1u << (9 - bitmap_col)))
+            {
+                ili9341_write_data(fg_color >> 8);
+                ili9341_write_data(fg_color & 0xFF);
+            }
+            else
+            {
+                ili9341_write_data(bg_color >> 8);
+                ili9341_write_data(bg_color & 0xFF);
+            }
+        }
     }
 }
