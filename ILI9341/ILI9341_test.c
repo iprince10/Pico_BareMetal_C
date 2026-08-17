@@ -56,12 +56,14 @@ void ili9341_write_data(uint8_t data);
 void ili9341_send_init_commands();
 void ili9341_fill_red(void);
 void ili9341_draw_char(uint16_t x, uint16_t y, char c, uint16_t fg_color, uint16_t bg_color, uint8_t scale);
+void ili9341_draw_string(uint16_t x, uint16_t y, const char *str, uint16_t fg_color, uint16_t bg_color, uint8_t scale);
 
 int main(void)
 {
     ili9341_init();
     ili9341_fill_red();
-    ili9341_draw_char(10, 20, 'W', 0x0000, 0xFFFF, 2);
+    // ili9341_draw_char(10, 20, 'W', 0x0000, 0xFFFF, 2);
+    ili9341_draw_string(10, 55, "HII\nSUMIR\nJIJU", 0x0000, 0xffff, 2);
 
     while (1)
     {
@@ -235,5 +237,30 @@ void ili9341_draw_char(uint16_t x, uint16_t y, char c, uint16_t fg_color, uint16
                 ili9341_write_data(bg_color & 0xFF);
             }
         }
+    }
+}
+
+void ili9341_draw_string(uint16_t x, uint16_t y, const char *str, uint16_t fg_color, uint16_t bg_color, uint8_t scale)
+{
+    uint16_t cursor_x = x;
+    uint16_t cursor_y = y;
+    uint16_t char_width = 10 * scale;
+    uint16_t char_height = 14 * scale;
+    uint16_t x_spacing = 8;
+    uint16_t y_spacing = 8;
+
+    while (*str)
+    {
+        if (*str == '\n')
+        {
+            cursor_x = x;
+            cursor_y += char_height + y_spacing;
+        }
+        else
+        {
+            ili9341_draw_char(cursor_x, cursor_y, *str, fg_color, bg_color, scale);
+            cursor_x += char_width + x_spacing;
+        }
+        str++;
     }
 }
