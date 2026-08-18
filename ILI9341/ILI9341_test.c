@@ -63,7 +63,7 @@ int main(void)
     ili9341_init();
     ili9341_fill_red();
     // ili9341_draw_char(10, 20, 'W', 0x0000, 0xFFFF, 2);
-    ili9341_draw_string(10, 55, "HII\nSUMIR\nJIJU", 0x0000, 0xffff, 2);
+    ili9341_draw_string(10, 55, "Hello,\nPrince\n'\\|'\nJha", 0x0000, 0xffff, 2);
 
     while (1)
     {
@@ -198,6 +198,46 @@ void ili9341_draw_char(uint16_t x, uint16_t y, char c, uint16_t fg_color, uint16
     {
         index = c - 'a' + 36;
     }
+    else if (c == ',')
+    {
+        index = 62;
+    }
+    else if (c == '.')
+    {
+        index = 63;
+    }
+    else if (c == ':')
+    {
+        index = 64;
+    }
+    else if (c == ';')
+    {
+        index = 65;
+    }
+    else if (c == '"')
+    {
+        index = 66;
+    }
+    else if (c == '/')
+    {
+        index = 67;
+    }
+    else if (c == '\\')
+    {
+        index = 68;
+    }
+    else if (c == '|')
+    {
+        index = 69;
+    }
+    else if (c == '(')
+    {
+        index = 70;
+    }
+    else if (c == ')')
+    {
+        index = 71;
+    }
     else
     {
         return;
@@ -250,8 +290,8 @@ void ili9341_draw_string(uint16_t x, uint16_t y, const char *str, uint16_t fg_co
     uint16_t cursor_y = y;
     uint16_t char_width = 10 * scale;
     uint16_t char_height = 14 * scale;
-    uint16_t x_spacing = 8;
-    uint16_t y_spacing = 8;
+    uint16_t x_spacing = 6;
+    uint16_t y_spacing = 4;
 
     while (*str)
     {

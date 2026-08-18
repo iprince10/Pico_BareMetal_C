@@ -163,6 +163,16 @@ void uart0_puts(const char *send)
     }
 }
 
+void isr_irq21(void)
+{
+    while ((UART1_FR & UART1_FR_RXFE) == 0)
+    {
+        char c = (char)(UART1_DR & 0x00ff);
+        ring_buffer_put(&uart1_rx_buffer, c);
+    }
+    UART1_ICR = UART1_ICR_RXIC | UART1_ICR_RTIC;
+}
+
 // writing a byte to the buffer
 int ring_buffer_put(volatile RingBuffer *rb, char c)
 {
@@ -191,33 +201,9 @@ int ring_buffer_get(volatile RingBuffer *rb, char *c)
     return 1;
 }
 
-void isr_irq21(void)
-{
-    while ((UART1_FR & UART1_FR_RXFE) == 0)
-    {
-        char c = (char)(UART1_DR & 0x00ff);
-        ring_buffer_put(&uart1_rx_buffer, c);
-    }
-    UART1_ICR = UART1_ICR_RXIC | UART1_ICR_RTIC;
-}
-
 int uart1_getc(char *c)
 {
     return ring_buffer_get(&uart1_rx_buffer, c);
-}
-
-int string_compare(const char *send, const char *receive)
-{
-    while (*send != '\0' && *receive != '\0')
-    {
-        if (*send != *receive)
-        {
-            return 0;
-        }
-        send++;
-        receive++;
-    }
-    return (*send == '\0' && *receive == '\0');
 }
 
 int uart1_gets(char *receive, int length)
@@ -236,6 +222,20 @@ int uart1_gets(char *receive, int length)
         }
     }
     return 0;
+}
+
+int string_compare(const char *send, const char *receive)
+{
+    while (*send != '\0' && *receive != '\0')
+    {
+        if (*send != *receive)
+        {
+            return 0;
+        }
+        send++;
+        receive++;
+    }
+    return (*send == '\0' && *receive == '\0');
 }
 
 uint64_t read_timer(void)
