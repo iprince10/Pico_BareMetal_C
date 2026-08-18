@@ -79,10 +79,10 @@ void ili9341_init()
     PAD_GPIO20 = 0x23;
     PAD_GPIO21 = 0x23;
 
-    GPIO16_CTRL = GPIO_FUNC_SPI0; // spi0 rx
+    GPIO16_CTRL = GPIO_FUNC_SPI0; // spi0 rx miso
     GPIO17_CTRL = GPIO_FUNC_SPI0; // spi0 csn
     GPIO18_CTRL = GPIO_FUNC_SPI0; // spi0 sck
-    GPIO19_CTRL = GPIO_FUNC_SPI0; // spi0 tx
+    GPIO19_CTRL = GPIO_FUNC_SPI0; // spi0 tx mosi
     GPIO20_CTRL = GPIO_FUNC_SIO;  // sio d/c pin
     GPIO21_CTRL = GPIO_FUNC_SIO;  // sio hardware reset pin
 
@@ -193,6 +193,10 @@ void ili9341_draw_char(uint16_t x, uint16_t y, char c, uint16_t fg_color, uint16
     else if (c >= 'A' && c <= 'Z')
     {
         index = c - 'A' + 10;
+    }
+    else if (c >= 'a' && c <= 'z')
+    {
+        index = c - 'a' + 36;
     }
     else
     {
