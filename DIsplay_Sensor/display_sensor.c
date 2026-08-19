@@ -122,6 +122,15 @@ void ili9341_fill_white(void);
 void ili9341_draw_char(uint16_t x, uint16_t y, char c, uint16_t fg_color, uint16_t bg_color, uint8_t scale);
 void ili9341_draw_string(uint16_t x, uint16_t y, const char *str, uint16_t fg_color, uint16_t bg_color, uint8_t scale);
 
+void ili9341_fill_area(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+void format_distance(char *buff, uint32_t distance);
+void display_init_log(void);
+void display_add_line(const char *str);
+void display_redraw_all(void);
+
+char screen_lines[8][32]; // 8 reading slots , 32 chars each
+uint8_t line_count = 0;   // slots filled
+
 int main(void)
 {
     ili9341_init();
@@ -165,24 +174,26 @@ int main(void)
             uint64_t duration_us = f - r;
             uint64_t distance_cm = duration_us / 58;
 
-            if (distance_cm > 500)
+            if (distance_cm > 500 || distance_cm <= 20)
             {
-                // max distance
+                // max & min distance
                 uart0_puts("TANK FULL\r\n");
-            }
-            else if (distance_cm <= 20)
-            {
-                uart0_puts("TANK FULL\r\n");
+                display_add_line("TANK FULL");
             }
             else
             {
                 uart0_putnum(distance_cm);
                 uart0_puts(" cm\r\n");
+
+                char buff[16];
+                format_distance(buff, distance_cm);
+                display_add_line(buff);
             }
         }
         else
         {
             uart0_puts("no measurement\r\n");
+            display_add_line("no measurement");
         }
 
         delay_ms(50); // wait between triggers
@@ -572,5 +583,123 @@ void delay_us(uint64_t microseconds)
     while ((read_timer() - start) < target_us)
     {
         // wait;
+    }
+}
+
+void ili9341_fill_area(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color)
+{
+    // CAset
+    ili9341_write_command(0x2A);
+    ili9341_write_data(x >> 8);             // start column address high byte
+    ili9341_write_data((x & 0xff));         // start column low byte
+    ili9341_write_data((x + w - 1) >> 8);   // end column high byte
+    ili9341_write_data((x + w - 1) & 0xff); // end column low byte
+
+    // PAset
+    ili9341_write_command(0x2B);
+    ili9341_write_data(y >> 8);             // start column address high byte
+    ili9341_write_data((y & 0xff));         // start column low byte
+    ili9341_write_data((y + h - 1) >> 8);   // end column high byte
+    ili9341_write_data((y + h - 1) & 0xff); // end column low byte
+
+    // Memory write
+    ili9341_write_command(0x2C);
+
+    for (uint32_t i = 0; i < (uint32_t)(w * h); i++)
+    {
+        ili9341_write_data(color >> 8);
+        ili9341_write_data(color & 0xff);
+    }
+}
+
+void format_distance(char *buff, uint32_t distance)
+{
+    if (distance == 0)
+    {
+        buff[0] = '0';
+        buff[1] = ' ';
+        buff[2] = 'c';
+        buff[3] = 'm';
+        buff[4] = '\0';
+        return;
+    }
+
+    char tmp[8];
+    int tidx = 0;
+    while (distance > 0)
+    {
+        tmp[tidx++] = '0' + (distance % 10);
+        distance /= 10;
+    }
+
+    int bidx = 0;
+    for (int i = tidx - 1; i >= 0; i--)
+    {
+        buff[bidx++] = tmp[i];
+    }
+    buff[bidx++] = ' ';
+    buff[bidx++] = 'c';
+    buff[bidx++] = 'm';
+    buff[bidx] = '\0';
+}
+
+void display_init_log(void)
+{
+    ili9341_draw_string(4, 4, "Distance Log", 0x0000, 0xffff, 2);
+    ili9341_fill_area(4, 310, 232, 4, 0x0000);
+}
+
+void display_add_line(const char *str)
+{
+    if (line_count < 8)
+    {
+        int i = 0;
+        while (str[i] != '\0' && i < 31)
+        {
+            screen_lines[line_count][i] = str[i];
+            i++;
+        }
+        screen_lines[line_count][i] = '\0';
+
+        ili9341_draw_string(4, 36 + (line_count * 32), screen_lines[line_count], 0x0000, 0xFFFF, 2);
+
+        line_count++;
+    }
+    else
+    {
+        for (int i = 0; i < 7; i++)
+        {
+            int j = 0;
+            while (screen_lines[i + 1][j] != '\0' && j < 31)
+            {
+                screen_lines[i][j] = screen_lines[i + 1][j];
+                j++;
+            }
+            screen_lines[i][j] = '\0';
+        }
+        int k = 0;
+        while (str[k] != '\0' && k < 31)
+        {
+            screen_lines[7][k] = str[k];
+            k++;
+        }
+        screen_lines[7][k] = '\0';
+
+        ili9341_fill_area(0, 36, 240, 256, 0xffff);
+
+        for (int i = 0; i < 8; i++)
+        {
+            ili9341_draw_string(4, 36 + (i * 32), screen_lines[i], 0x0000, 0xffff, 2);
+        }
+    }
+}
+
+void display_redraw_all(void)
+{
+    ili9341_fill_area(0, 36, 240, 256, 0xffff);
+
+    for (int i = 0; i < line_count; i++)
+    {
+        ili9341_draw_string(4, 36 + (i * 32), screen_lines[i], 0x0000, 0xffff, 2);
     }
 }
