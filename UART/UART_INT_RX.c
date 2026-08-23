@@ -201,11 +201,13 @@ int ring_buffer_get(volatile RingBuffer *rb, char *c)
     return 1;
 }
 
+//read out a single character
 int uart1_getc(char *c)
 {
     return ring_buffer_get(&uart1_rx_buffer, c);
 }
 
+//reading out a string
 int uart1_gets(char *receive, int length)
 {
     static int index = 0;
