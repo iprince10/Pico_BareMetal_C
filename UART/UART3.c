@@ -96,6 +96,25 @@ void uart0_init(void)
     UART0_CR = UART0_CR_UARTEN | UART0_CR_TXE_EN;
 }
 
+void uart0_putc(char c)
+{
+    while ((UART0_FR & UART0_FR_TXFF) != 0)
+    {
+        // wait buffer full
+    }
+    UART0_DR = c;
+}
+
+void uart0_puts(const char *send)
+{
+
+    while (*send != '\0')
+    {
+        uart0_putc(*send);
+        send++;
+    }
+}
+
 void uart1_init(void)
 {
     UART1_CR = 0;
@@ -110,15 +129,6 @@ void uart1_init(void)
     UART1_CR = UART1_CR_UARTEN | UART1_CR_RXE_EN;
 }
 
-void uart0_putc(char c)
-{
-    while ((UART0_FR & UART0_FR_TXFF) != 0)
-    {
-        // wait buffer full
-    }
-    UART0_DR = c;
-}
-
 char uart1_getc(void)
 {
     while ((UART1_FR & UART1_FR_RXFE) != 0)
@@ -127,16 +137,6 @@ char uart1_getc(void)
     }
     uint32_t data = UART1_DR;
     return (char)(data & 0x00ff);
-}
-
-void uart0_puts(const char *send)
-{
-
-    while (*send != '\0')
-    {
-        uart0_putc(*send);
-        send++;
-    }
 }
 
 void uart1_gets(char *receive, int length)
