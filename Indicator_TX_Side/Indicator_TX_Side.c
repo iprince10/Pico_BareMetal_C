@@ -17,7 +17,6 @@ int main(void)
     gpio2_init_output();
     lora_tx_init();
     uart1_init();
-    
 
     GPIO25_CTRL = GPIO_FUNC_SIO;
     SIO_GPIO_OE |= (1u << LED_PIN_25); // output enable for led pin gpio 25
@@ -49,6 +48,9 @@ int main(void)
         __asm volatile("" ::: "memory");
         __asm volatile("cpsie i");
 
+        uint8_t status;
+        uint8_t dist_hi, dist_lo;
+
         if (flag && f > r)
         {
             uint64_t duration_us = f - r;
@@ -58,23 +60,32 @@ int main(void)
             {
                 // max & min distance
                 uart0_puts("TANK FULL\r\n");
-
+                status = 2;
+                dist_hi = 0;
+                dist_lo = 0;
             }
             else
             {
                 uart0_putnum(distance_cm);
                 uart0_puts(" cm\r\n");
-
-                char buff[16];
-                format_distance(buff, distance_cm);
-
+                status = 1;
+                dist_hi = (distance_cm >> 8) & 0xff;
+                dist_lo = (distance_cm & 0xff);
             }
         }
         else
         {
             uart0_puts("no measurement\r\n");
-
+            status = 3;
+            dist_hi = 0;
+            dist_lo = 0;
         }
+
+        uint8_t checksum = status ^ dist_hi ^ dist_lo;
+        uint8_t packet[6] = {0xAA, status, dist_hi, dist_lo, checksum, 0x55};
+
+        uart1_write_bytes(packet, 6);
+        delay_ms(100); // let the module clear the air before the next cycle
 
         delay_ms(500); // wait between triggers
     }
