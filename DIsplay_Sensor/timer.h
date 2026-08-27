@@ -1,9 +1,10 @@
-#ifndef BITMAP_H
-#define BITMAP_H
+#ifndef Timer_H
+#define Timer_H
 
 #include <stdint.h>
 
-extern const uint8_t font_5x7[36][7];
-extern const uint16_t font_10x14[72][14];
+uint64_t read_timer(void);
+void delay_ms(uint64_t milliseconds);
+void delay_us(uint64_t microseconds);
 
 #endif
