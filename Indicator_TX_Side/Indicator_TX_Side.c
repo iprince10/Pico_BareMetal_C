@@ -1,8 +1,7 @@
 #include <stdint.h>
-#include <bitmap.h>
 #include <timer.h>
 #include <sr04t.h>
-#include <ili9341.h>
+#include <lora.h>
 
 #define IO_BANK0_BASE 0x40014000u
 #define SIO_BASE 0xd0000000u
