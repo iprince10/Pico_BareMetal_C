@@ -21,20 +21,6 @@
 #define PAD_GPIO8_CTRL (*(volatile uint32_t *)(PAD_BANK0_BASE + 0x24))
 #define PAD_GPIO_CTRL_IE (1u << 6)
 
-#define UART0_FUNC 2u
-#define UART0_BASE 0x40034000u
-#define UART0_DR (*(volatile uint32_t *)(UART0_BASE + 0x000))
-#define UART0_FR (*(volatile uint32_t *)(UART0_BASE + 0x018))
-#define UART0_FR_TXFF (1u << 5)
-#define UART0_IBRD (*(volatile uint32_t *)(UART0_BASE + 0x024))
-#define UART0_FBRD (*(volatile uint32_t *)(UART0_BASE + 0x028))
-#define UART0_CR (*(volatile uint32_t *)(UART0_BASE + 0x030))
-#define UART0_CR_UARTEN (1u << 0)
-#define UART0_CR_TXE_EN (1u << 8)
-#define UART0_LCR_H (*(volatile uint32_t *)(UART0_BASE + 0x02c))
-#define UART0_LCR_H_FEN (1u << 4)
-#define UART0_LCR_H_WLEN (3u << 5)
-
 #define UART1_BASE 0x40038000u
 #define UART1_FUNC 2u
 #define UART1_DR (*(volatile uint32_t *)(UART1_BASE + 0x000))
@@ -53,10 +39,6 @@
 void uart1_init(void);
 void uart1_putc(char c);
 void uart1_puts(const char *send);
-
-void uart0_init(void);
-void uart0_putc(char);
-void uart0_puts(const char *);
 
 void lora_tx_init(void);
 int wait_aux_high(void);
@@ -111,39 +93,6 @@ void uart1_puts(const char *send)
     while (*send != '\0')
     {
         uart1_putc(*send);
-        send++;
-    }
-}
-
-void uart0_init(void)
-{
-    UART0_CR = 0;
-
-    GPIO0_CTRL = UART0_FUNC;
-
-    UART0_IBRD = 813;
-    UART0_FBRD = 51;
-
-    UART0_LCR_H = UART0_LCR_H_WLEN | UART0_LCR_H_FEN; // 8N1 8data, No parity, 1 stop bit, enable fifo
-
-    UART0_CR = UART0_CR_UARTEN | UART0_CR_TXE_EN;
-}
-
-void uart0_putc(char c)
-{
-    while ((UART0_FR & UART0_FR_TXFF) != 0)
-    {
-        // wait buffer full
-    }
-    UART0_DR = c;
-}
-
-void uart0_puts(const char *send)
-{
-
-    while (*send != '\0')
-    {
-        uart0_putc(*send);
         send++;
     }
 }
