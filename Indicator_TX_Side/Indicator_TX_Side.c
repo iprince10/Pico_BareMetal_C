@@ -59,7 +59,7 @@ int main(void)
             {
                 // max & min distance
                 uart0_puts("TANK FULL\r\n");
-                display_add_line("TANK FULL");
+
             }
             else
             {
@@ -68,13 +68,13 @@ int main(void)
 
                 char buff[16];
                 format_distance(buff, distance_cm);
-                display_add_line(buff);
+
             }
         }
         else
         {
             uart0_puts("no measurement\r\n");
-            display_add_line("no measurement");
+
         }
 
         delay_ms(500); // wait between triggers
