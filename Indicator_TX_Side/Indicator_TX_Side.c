@@ -84,9 +84,19 @@ int main(void)
         uint8_t checksum = status ^ dist_hi ^ dist_lo;
         uint8_t packet[6] = {0xAA, status, dist_hi, dist_lo, checksum, 0x55};
 
+        uart0_puts("PKT: ");
+        for (int i = 0; i < 6; i++)
+        {
+            const char hex[] = "0123456789ABCDEF";
+            uart0_putc(hex[(packet[i] >> 4) & 0xF]);
+            uart0_putc(hex[packet[i] & 0xF]);
+            uart0_putc(' ');
+        }
+        uart0_puts("\r\n");
+        
         uart1_write_bytes(packet, 6);
-        delay_ms(100); // let the module clear the air before the next cycle
 
+        delay_ms(100); // let the module clear the air before the next cycle
         delay_ms(500); // wait between triggers
     }
 }
