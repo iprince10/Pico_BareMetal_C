@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <timer.h>
+#include <sr04t.h>
 
 #define IO_BANK0_BASE 0x40014000u
 #define GPIO0_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x004))
@@ -44,6 +45,7 @@ void uart1_putc(char c);
 void uart1_puts(const char *send);
 void uart1_write_bytes(const uint8_t *data, uint8_t len);
 char uart1_getc(void);
+int uart1_has_data(void);
 
 void lora_tx_init(void);
 int wait_aux_high(void);
@@ -122,6 +124,10 @@ char uart1_getc(void)
     return (char)(data & 0x00ff);
 }
 
+int uart1_has_data(void)
+{
+    return (UART1_FR & UART1_FR_RXFE) == 0;
+}
 
 void set_param_config_tx(void)
 {
