@@ -147,7 +147,7 @@ void check_config_tx(void)
     uart1_putc((char)0xC1);
     delay_ms(200);
 
-    uart0_puts("RX CFG: ");
+    uart0_puts("TX CFG: ");
     const char hex[] = "0123456789ABCDEF";
     for (int i = 0; i < 6; i++)
     {

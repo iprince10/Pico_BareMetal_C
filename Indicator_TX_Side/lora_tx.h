@@ -1,5 +1,5 @@
-#ifndef lora_h
-#define lora_h
+#ifndef lora_tx_h
+#define lora_tx_h
 
 void uart1_init(void);
 void uart1_putc(char c);

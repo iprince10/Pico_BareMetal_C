@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <timer.h>
 #include <sr04t.h>
-#include <lora.h>
+#include <lora_tx.h>
 
 #define IO_BANK0_BASE 0x40014000u
 #define SIO_BASE 0xd0000000u
