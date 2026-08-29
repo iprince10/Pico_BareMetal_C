@@ -4,6 +4,7 @@
 #define IO_BANK0_BASE 0x40014000u
 #define GPIO0_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x004))
 #define GPIO4_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x024))
+#define GPIO5_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x02c))
 #define GPIO6_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x034))
 #define GPIO7_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x03c))
 #define GPIO8_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x044))
@@ -27,6 +28,7 @@
 #define UART1_DR (*(volatile uint32_t *)(UART1_BASE + 0x000))
 #define UART1_FR (*(volatile uint32_t *)(UART1_BASE + 0x018))
 #define UART1_FR_TXFF (1u << 5)
+#define UART1_FR_RXFE (1u << 4)
 #define UART1_IBRD (*(volatile uint32_t *)(UART1_BASE + 0x024))
 #define UART1_FBRD (*(volatile uint32_t *)(UART1_BASE + 0x028))
 #define UART1_CR (*(volatile uint32_t *)(UART1_BASE + 0x030))
@@ -41,10 +43,12 @@ void uart1_init(void);
 void uart1_putc(char c);
 void uart1_puts(const char *send);
 void uart1_write_bytes(const uint8_t *data, uint8_t len);
+char uart1_getc(void);
 
 void lora_tx_init(void);
 int wait_aux_high(void);
 void set_param_config_tx(void);
+void check_config_tx(void);
 
 void lora_tx_init(void)
 {
@@ -78,7 +82,7 @@ void uart1_init(void)
 
     UART1_LCR_H = UART1_LCR_H_FEN | UART1_LCR_H_WLEN; // 8N1 8data, No parity, 1 stop bit, enable fifo
 
-    UART1_CR = UART1_CR_UARTEN | UART1_CR_TXE_EN;
+    UART1_CR = UART1_CR_UARTEN | UART1_CR_TXE_EN | UART1_CR_RXE_EN;
 }
 
 void uart1_putc(char c)
@@ -108,16 +112,54 @@ void uart1_write_bytes(const uint8_t *data, uint8_t len)
     }
 }
 
+char uart1_getc(void)
+{
+    while ((UART1_FR & UART1_FR_RXFE) != 0)
+    {
+        // wait buffer empty
+    }
+    uint32_t data = UART1_DR;
+    return (char)(data & 0x00ff);
+}
+
+
 void set_param_config_tx(void)
 {
     SIO_GPIO_OUT_SET = (1u << 6) | (1u << 7);
     delay_ms(50);
-    uint8_t packet[6] = {0xc0, 0x00, 0x00, 0x1a, 0x17, 0xc4};
+    uint8_t packet[6] = {0xc0, 0x00, 0x01, 0x1a, 0x17, 0xc4};
 
     for (int i = 0; i < 6; i++)
     {
         uart1_putc(packet[i]);
     }
     delay_ms(50);
+    SIO_GPIO_OUT_CLEAR = (1u << 6) | (1u << 7);
+}
+
+void check_config_tx(void)
+{
+    SIO_GPIO_OUT_SET = (1u << 6) | (1u << 7);
+    delay_ms(50);
+
+    uart1_putc((char)0xC1);
+    uart1_putc((char)0xC1);
+    uart1_putc((char)0xC1);
+    delay_ms(200);
+
+    uart0_puts("RX CFG: ");
+    const char hex[] = "0123456789ABCDEF";
+    for (int i = 0; i < 6; i++)
+    {
+        if (uart1_has_data())
+        {
+            char c = uart1_getc();
+            uart0_putc(hex[(c >> 4) & 0xF]);
+            uart0_putc(hex[c & 0xF]);
+            uart0_putc(' ');
+        }
+    }
+    uart0_puts("\r\n");
+
     SIO_GPIO_OUT_CLEAR = (1u << 6) | (1u << 7);
 }

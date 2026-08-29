@@ -18,6 +18,7 @@ int main(void)
     lora_tx_init();
     uart1_init();
     set_param_config_tx();
+    check_config_tx();
 
     GPIO25_CTRL = GPIO_FUNC_SIO;
     SIO_GPIO_OE |= (1u << LED_PIN_25); // output enable for led pin gpio 25
@@ -86,7 +87,7 @@ int main(void)
         uint8_t packet[9] = {0x00, 0x01, 0x17, 0xAA, status, dist_hi, dist_lo, checksum, 0x55};
 
         uart0_puts("PKT: ");
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 9; i++)
         {
             const char hex[] = "0123456789ABCDEF";
             uart0_putc(hex[(packet[i] >> 4) & 0xF]);

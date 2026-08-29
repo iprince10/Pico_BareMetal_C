@@ -22,6 +22,7 @@ int main(void)
     uart0_init();
     uart0_puts("READY\r\n");
     set_param_config_rx();
+    check_config_rx();
 
     GPIO25_CTRL = GPIO_FUNC_SIO;
     SIO_GPIO_OE |= (1u << LED_PIN_25); // output enable for led pin gpio 25

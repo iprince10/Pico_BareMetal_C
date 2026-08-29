@@ -65,6 +65,7 @@ void lora_rx_init(void);
 int wait_aux_high(void);
 int uart1_has_data(void);
 void set_param_config_rx(void);
+void check_config_rx(void);
 
 void lora_rx_init(void)
 {
@@ -161,12 +162,39 @@ void set_param_config_rx(void)
 {
     SIO_GPIO_OUT_SET = (1u << 6) | (1u << 7);
     delay_ms(50);
-    uint8_t packet[6] = {0xc0, 0x00, 0x01, 0x1a, 0x17, 0xc4};
+    uint8_t packet[6] = {0xc0, 0x00, 0x02, 0x1a, 0x17, 0xc4};
 
     for (int i = 0; i < 6; i++)
     {
         uart1_putc(packet[i]);
     }
     delay_ms(50);
+    SIO_GPIO_OUT_CLEAR = (1u << 6) | (1u << 7);
+}
+
+void check_config_rx(void)
+{
+    SIO_GPIO_OUT_SET = (1u << 6) | (1u << 7);
+    delay_ms(50);
+
+    uart1_putc((char)0xC1);
+    uart1_putc((char)0xC1);
+    uart1_putc((char)0xC1);
+    delay_ms(200);
+
+    uart0_puts("RX CFG: ");
+    const char hex[] = "0123456789ABCDEF";
+    for (int i = 0; i < 6; i++)
+    {
+        if (uart1_has_data())
+        {
+            char c = uart1_getc();
+            uart0_putc(hex[(c >> 4) & 0xF]);
+            uart0_putc(hex[c & 0xF]);
+            uart0_putc(' ');
+        }
+    }
+    uart0_puts("\r\n");
+
     SIO_GPIO_OUT_CLEAR = (1u << 6) | (1u << 7);
 }
