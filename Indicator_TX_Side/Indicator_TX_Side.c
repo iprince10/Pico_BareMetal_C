@@ -83,7 +83,7 @@ int main(void)
         }
 
         uint8_t checksum = status ^ dist_hi ^ dist_lo;
-        uint8_t packet[6] = {0xAA, status, dist_hi, dist_lo, checksum, 0x55};
+        uint8_t packet[9] = {0x00, 0x01, 0x17, 0xAA, status, dist_hi, dist_lo, checksum, 0x55};
 
         uart0_puts("PKT: ");
         for (int i = 0; i < 6; i++)
@@ -95,7 +95,7 @@ int main(void)
         }
         uart0_puts("\r\n");
         
-        uart1_write_bytes(packet, 6);
+        uart1_write_bytes(packet, 9);
 
         delay_ms(100); // let the module clear the air before the next cycle
         delay_ms(500); // wait between triggers

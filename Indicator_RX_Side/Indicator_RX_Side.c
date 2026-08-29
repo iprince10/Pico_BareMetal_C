@@ -33,7 +33,6 @@ int main(void)
             while (uart1_has_data())
             {
                 uart0_putc(uart1_getc());
-                display_add_line("PRINCE JHA");
             }
         }
         delay_ms(500); // wait between triggers
