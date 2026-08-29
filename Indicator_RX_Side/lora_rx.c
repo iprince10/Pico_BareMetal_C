@@ -1,7 +1,9 @@
 #include <stdint.h>
+#include <timer.h>
 
 #define IO_BANK0_BASE 0x40014000u
 #define GPIO0_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x004))
+#define GPIO4_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x024))
 #define GPIO5_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x02c))
 #define GPIO6_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x034))
 #define GPIO7_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x03c))
@@ -35,11 +37,13 @@
 #define UART1_FUNC 2u
 #define UART1_DR (*(volatile uint32_t *)(UART1_BASE + 0x000))
 #define UART1_FR (*(volatile uint32_t *)(UART1_BASE + 0x018))
+#define UART1_FR_TXFF (1u << 5)
 #define UART1_FR_RXFE (1u << 4)
 #define UART1_IBRD (*(volatile uint32_t *)(UART1_BASE + 0x024))
 #define UART1_FBRD (*(volatile uint32_t *)(UART1_BASE + 0x028))
 #define UART1_CR (*(volatile uint32_t *)(UART1_BASE + 0x030))
 #define UART1_CR_UARTEN (1u << 0)
+#define UART1_CR_TXE_EN (1u << 8)
 #define UART1_CR_RXE_EN (1u << 9)
 #define UART1_LCR_H (*(volatile uint32_t *)(UART1_BASE + 0x02c))
 #define UART1_LCR_H_FEN (1u << 4)
@@ -50,6 +54,7 @@
 #define PAD_GPIO_CTRL_IE (1u << 6)
 
 void uart1_init(void);
+void uart1_putc(char c);
 char uart1_getc(void);
 
 void uart0_init(void);
@@ -58,7 +63,8 @@ void uart0_puts(const char *);
 
 void lora_rx_init(void);
 int wait_aux_high(void);
-
+int uart1_has_data(void);
+void set_param_config_rx(void);
 
 void lora_rx_init(void)
 {
@@ -92,7 +98,16 @@ void uart1_init(void)
 
     UART1_LCR_H = UART1_LCR_H_FEN | UART1_LCR_H_WLEN; // 8N1 8data, No parity, 1 stop bit, enable fifo
 
-    UART1_CR = UART1_CR_UARTEN | UART1_CR_RXE_EN;
+    UART1_CR = UART1_CR_UARTEN | UART1_CR_RXE_EN | UART1_CR_TXE_EN;
+}
+
+void uart1_putc(char c)
+{
+    while ((UART1_FR & UART1_FR_TXFF) != 0)
+    {
+        // wait while buffer full
+    }
+    UART1_DR = c;
 }
 
 char uart1_getc(void)
@@ -136,4 +151,22 @@ void uart0_puts(const char *send)
         uart0_putc(*send);
         send++;
     }
+}
+int uart1_has_data(void)
+{
+    return (UART1_FR & UART1_FR_RXFE) == 0;
+}
+
+void set_param_config_rx(void)
+{
+    SIO_GPIO_OUT_SET = (1u << 6) | (1u << 7);
+    delay_ms(50);
+    uint8_t packet[6] = {0xc0, 0x00, 0x01, 0x1a, 0x17, 0xc4};
+
+    for (int i = 0; i < 6; i++)
+    {
+        uart1_putc(packet[i]);
+    }
+    delay_ms(50);
+    SIO_GPIO_OUT_CLEAR = (1u << 6) | (1u << 7);
 }

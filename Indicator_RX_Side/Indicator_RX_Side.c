@@ -21,6 +21,7 @@ int main(void)
     uart1_init();
     uart0_init();
     uart0_puts("READY\r\n");
+    set_param_config_rx();
 
     GPIO25_CTRL = GPIO_FUNC_SIO;
     SIO_GPIO_OE |= (1u << LED_PIN_25); // output enable for led pin gpio 25
@@ -29,9 +30,10 @@ int main(void)
     {
         if (wait_aux_high() == 0)
         {
-            while ((UART1_FR & UART1_FR_RXFE) == 0)
+            while (uart1_has_data())
             {
                 uart0_putc(uart1_getc());
+                display_add_line("PRINCE JHA");
             }
         }
         delay_ms(500); // wait between triggers

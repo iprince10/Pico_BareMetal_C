@@ -17,6 +17,7 @@ int main(void)
     gpio2_init_output();
     lora_tx_init();
     uart1_init();
+    set_param_config_tx();
 
     GPIO25_CTRL = GPIO_FUNC_SIO;
     SIO_GPIO_OE |= (1u << LED_PIN_25); // output enable for led pin gpio 25

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <timer.h>
 
 #define IO_BANK0_BASE 0x40014000u
 #define GPIO0_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x004))
@@ -43,6 +44,7 @@ void uart1_write_bytes(const uint8_t *data, uint8_t len);
 
 void lora_tx_init(void);
 int wait_aux_high(void);
+void set_param_config_tx(void);
 
 void lora_tx_init(void)
 {
@@ -104,4 +106,18 @@ void uart1_write_bytes(const uint8_t *data, uint8_t len)
     {
         uart1_putc((char)data[i]);
     }
+}
+
+void set_param_config_tx(void)
+{
+    SIO_GPIO_OUT_SET = (1u << 6) | (1u << 7);
+    delay_ms(50);
+    uint8_t packet[6] = {0xc0, 0x00, 0x00, 0x1a, 0x17, 0xc4};
+
+    for (int i = 0; i < 6; i++)
+    {
+        uart1_putc(packet[i]);
+    }
+    delay_ms(50);
+    SIO_GPIO_OUT_CLEAR = (1u << 6) | (1u << 7);
 }

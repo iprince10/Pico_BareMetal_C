@@ -8,5 +8,6 @@ void uart1_write_bytes(const uint8_t *data, uint8_t len);
 
 void lora_tx_init(void);
 int wait_aux_high(void);
+void set_param_config_tx(void);
 
 #endif
