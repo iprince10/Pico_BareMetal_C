@@ -1,6 +1,8 @@
 #ifndef uart_c
 #define uart_c
 
+#include <stdint.h>
+
 void uart0_init(void);
 void uart0_putc(char);
 void uart0_puts(const char *);
