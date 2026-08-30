@@ -21,19 +21,28 @@ int main(void)
     uart1_init();
     uart0_init();
     uart0_puts("READY\r\n");
-    set_param_config_rx();
+    // set_param_config_rx();
     check_config_rx();
+    display_add_line("PRINCE");
 
     GPIO25_CTRL = GPIO_FUNC_SIO;
     SIO_GPIO_OE |= (1u << LED_PIN_25); // output enable for led pin gpio 25
 
     while (1)
     {
-        if (wait_aux_high() == 0)
+        if (wait_aux_high())
         {
             while (uart1_has_data())
             {
-                uart0_putc(uart1_getc());
+                uint8_t byte = (uint8_t)uart1_getc();
+
+                // Print readable hex to serial monitor
+                const char hex[] = "0123456789ABCDEF";
+                uart0_putc(hex[(byte >> 4) & 0x0F]);
+                uart0_putc(hex[byte & 0x0F]);
+                uart0_putc(' ');
+                // uart0_putc(uart1_getc());
+                // display_add_line("PRINCE JHA");
             }
         }
         delay_ms(500); // wait between triggers

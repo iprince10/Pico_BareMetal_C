@@ -4,6 +4,7 @@
 void uart1_init(void);
 void uart1_putc(char c);
 char uart1_getc(void);
+void uart1_write_bytes(const uint8_t *data, uint8_t len);
 
 void uart0_init(void);
 void uart0_putc(char);

@@ -56,6 +56,7 @@
 void uart1_init(void);
 void uart1_putc(char c);
 char uart1_getc(void);
+void uart1_write_bytes(const uint8_t *data, uint8_t len);
 
 void uart0_init(void);
 void uart0_putc(char);
@@ -92,6 +93,7 @@ int wait_aux_high(void)
 void uart1_init(void)
 {
     UART1_CR = 0;
+    GPIO4_CTRL = UART1_FUNC;
     GPIO5_CTRL = UART1_FUNC;
 
     UART1_IBRD = 813; // for 9600 baud rate
@@ -119,6 +121,14 @@ char uart1_getc(void)
     }
     uint32_t data = UART1_DR;
     return (char)(data & 0x00ff);
+}
+
+void uart1_write_bytes(const uint8_t *data, uint8_t len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        uart1_putc((char)data[i]);
+    }
 }
 
 void uart0_init(void)
@@ -160,16 +170,55 @@ int uart1_has_data(void)
 
 void set_param_config_rx(void)
 {
+    const char hex[] = "0123456789ABCDEF";
+    const uint8_t packet[6] = {
+        0xC0, // save configuration
+        0x00, // ADDH
+        0x02, // ADDL
+        0x1A, // SPED
+        0x17, // CHAN
+        0xC4  // OPTION
+    };
+
+    // M0 = 1, M1 = 1: configuration mode
     SIO_GPIO_OUT_SET = (1u << 6) | (1u << 7);
     delay_ms(50);
-    uint8_t packet[6] = {0xc0, 0x00, 0x02, 0x1a, 0x17, 0xc4};
 
+    uart1_write_bytes(packet, sizeof(packet));
+    delay_ms(100);
+
+    // C0 returns six acknowledgement bytes. Remove them before reading C1.
     for (int i = 0; i < 6; i++)
     {
-        uart1_putc(packet[i]);
+        while (!uart1_has_data())
+        {
+        }
+        (void)uart1_getc();
     }
-    delay_ms(50);
+
+    // Read the configuration that was just saved.
+    uart1_putc(0xC1);
+    uart1_putc(0xC1);
+    uart1_putc(0xC1);
+    delay_ms(200);
+
+    uart0_puts("RX CFG: ");
+    for (int i = 0; i < 100; i++)
+    {
+        if (uart1_has_data())
+        {
+            uint8_t value = (uint8_t)uart1_getc();
+            uart0_putc(hex[(value >> 4) & 0x0F]);
+            uart0_putc(hex[value & 0x0F]);
+            uart0_putc(' ');
+        }
+        delay_ms(5);
+    }
+    uart0_puts("\r\n");
+
+    // Back to normal mode
     SIO_GPIO_OUT_CLEAR = (1u << 6) | (1u << 7);
+    delay_ms(50);
 }
 
 void check_config_rx(void)
@@ -177,18 +226,18 @@ void check_config_rx(void)
     SIO_GPIO_OUT_SET = (1u << 6) | (1u << 7);
     delay_ms(50);
 
-    uart1_putc((char)0xC1);
-    uart1_putc((char)0xC1);
-    uart1_putc((char)0xC1);
+    uart1_putc(0xC1);
+    uart1_putc(0xC1);
+    uart1_putc(0xC1);
     delay_ms(200);
 
     uart0_puts("RX CFG: ");
     const char hex[] = "0123456789ABCDEF";
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 100; i++)
     {
         if (uart1_has_data())
         {
-            char c = uart1_getc();
+            uint8_t c = (uint8_t)uart1_getc();
             uart0_putc(hex[(c >> 4) & 0xF]);
             uart0_putc(hex[c & 0xF]);
             uart0_putc(' ');
@@ -197,4 +246,5 @@ void check_config_rx(void)
     uart0_puts("\r\n");
 
     SIO_GPIO_OUT_CLEAR = (1u << 6) | (1u << 7);
+    delay_ms(50);
 }
