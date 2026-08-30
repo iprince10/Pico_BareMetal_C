@@ -1,7 +1,9 @@
 #include <stdint.h>
 #include <timer.h>
+#include <uart.h>
 #include <sr04t.h>
 #include <lora_tx.h>
+
 
 #define IO_BANK0_BASE 0x40014000u
 #define SIO_BASE 0xd0000000u
@@ -20,7 +22,7 @@ int main(void)
     gpio2_init_output();
     uart0_puts("Ready\r\n");
     // set_param_config_tx();
-    check_config_rx();
+    check_config_tx();
 
     delay_ms(50);
 

@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <bitmap.h>
 #include <timer.h>
+#include <uart.h>
 #include <ili9341.h>
 #include <lora_rx.h>
 
@@ -21,7 +22,6 @@ int main(void)
     uart1_init();
     uart0_init();
     uart0_puts("READY\r\n");
-    // set_param_config_rx();
     check_config_rx();
     display_add_line("PRINCE");
 
