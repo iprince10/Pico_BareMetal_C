@@ -20,21 +20,6 @@
 #define PAD_GPIO_CTRL_PDE (1u << 2)
 #define PAD_GPIO_CTRL_SCHMITT (1u << 1)
 
-#define GPIO0_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x004))
-#define UART0_FUNC 2u
-#define UART0_BASE 0x40034000u
-#define UART0_DR (*(volatile uint32_t *)(UART0_BASE + 0x000))
-#define UART0_FR (*(volatile uint32_t *)(UART0_BASE + 0x018))
-#define UART0_FR_TXFF (1u << 5)
-#define UART0_IBRD (*(volatile uint32_t *)(UART0_BASE + 0x024))
-#define UART0_FBRD (*(volatile uint32_t *)(UART0_BASE + 0x028))
-#define UART0_CR (*(volatile uint32_t *)(UART0_BASE + 0x030))
-#define UART0_CR_UARTEN (1u << 0)
-#define UART0_CR_TXE_EN (1u << 8)
-#define UART0_LCR_H (*(volatile uint32_t *)(UART0_BASE + 0x02c))
-#define UART0_LCR_H_FEN (1u << 4)
-#define UART0_LCR_H_WLEN (3u << 5)
-
 #define PROC0_INTR0 (*(volatile uint32_t *)(IO_BANK0_BASE + 0x0f0))
 #define PROC0_INTE0 (*(volatile uint32_t *)(IO_BANK0_BASE + 0x100))
 #define PROC0_INTS0 (*(volatile uint32_t *)(IO_BANK0_BASE + 0x120))
@@ -46,11 +31,6 @@
 #define ARM_CORTEX_NVIC_BASE (0xe0000000u)
 #define NVIC_ISER (*(volatile uint32_t *)(ARM_CORTEX_NVIC_BASE + 0xe100))
 #define NVIC_IO_IRQ_BANK0_EN (1u << 13)
-
-void uart0_init(void);
-void uart0_putc(char);
-void uart0_puts(const char *);
-void uart0_putnum(uint64_t num);
 
 void gpio3_init_input(void);
 
@@ -119,61 +99,5 @@ void isr_irq13(void)
     }
     else
     {
-    }
-}
-
-void uart0_init(void)
-{
-    UART0_CR = 0;
-
-    GPIO0_CTRL = UART0_FUNC;
-
-    UART0_IBRD = 67;
-    UART0_FBRD = 52;
-
-    UART0_LCR_H = UART0_LCR_H_WLEN | UART0_LCR_H_FEN; // 8N1 8data, No parity, 1 stop bit, enable fifo
-
-    UART0_CR = UART0_CR_UARTEN | UART0_CR_TXE_EN;
-}
-
-void uart0_putc(char c)
-{
-    while ((UART0_FR & UART0_FR_TXFF) != 0)
-    {
-        // wait buffer full
-    }
-    UART0_DR = c;
-}
-
-void uart0_puts(const char *send)
-{
-
-    while (*send != '\0')
-    {
-        uart0_putc(*send);
-        send++;
-    }
-}
-
-void uart0_putnum(uint64_t num)
-{
-    if (num == 0)
-    {
-        uart0_putc('0');
-        return;
-    }
-    uint8_t buffer[20];
-    int index = 0;
-
-    while (num > 0)
-    {
-        buffer[index] = (num % 10) + '0';
-        num /= 10;
-        index++;
-    }
-
-    for (int i = index - 1; i >= 0; i--)
-    {
-        uart0_putc(buffer[i]);
     }
 }

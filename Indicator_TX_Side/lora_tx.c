@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <timer.h>
-#include <sr04t.h>
 
 #define IO_BANK0_BASE 0x40014000u
 #define GPIO0_CTRL (*(volatile uint32_t *)(IO_BANK0_BASE + 0x004))
@@ -24,6 +23,20 @@
 #define PAD_GPIO8_CTRL (*(volatile uint32_t *)(PAD_BANK0_BASE + 0x24))
 #define PAD_GPIO_CTRL_IE (1u << 6)
 
+#define UART0_BASE 0x40034000u
+#define UART0_FUNC 2u
+#define UART0_DR (*(volatile uint32_t *)(UART0_BASE + 0x000))
+#define UART0_FR (*(volatile uint32_t *)(UART0_BASE + 0x018))
+#define UART0_FR_TXFF (1u << 5)
+#define UART0_IBRD (*(volatile uint32_t *)(UART0_BASE + 0x024))
+#define UART0_FBRD (*(volatile uint32_t *)(UART0_BASE + 0x028))
+#define UART0_CR (*(volatile uint32_t *)(UART0_BASE + 0x030))
+#define UART0_CR_UARTEN (1u << 0)
+#define UART0_CR_TXE_EN (1u << 8)
+#define UART0_LCR_H (*(volatile uint32_t *)(UART0_BASE + 0x02c))
+#define UART0_LCR_H_FEN (1u << 4)
+#define UART0_LCR_H_WLEN (3u << 5)
+
 #define UART1_BASE 0x40038000u
 #define UART1_FUNC 2u
 #define UART1_DR (*(volatile uint32_t *)(UART1_BASE + 0x000))
@@ -40,6 +53,11 @@
 #define UART1_LCR_H_FEN (1u << 4)
 #define UART1_LCR_H_WLEN (3u << 5)
 
+void uart0_init(void);
+void uart0_putc(char);
+void uart0_puts(const char *);
+void uart0_putnum(uint64_t num);
+
 void uart1_init(void);
 void uart1_putc(char c);
 void uart1_puts(const char *send);
@@ -50,7 +68,7 @@ int uart1_has_data(void);
 void lora_tx_init(void);
 int wait_aux_high(void);
 void set_param_config_tx(void);
-void check_config_tx(void);
+void check_config_rx(void);
 
 void lora_tx_init(void)
 {
@@ -74,10 +92,67 @@ int wait_aux_high(void)
     return 0;
 }
 
+void uart0_init(void)
+{
+    UART0_CR = 0;
+
+    GPIO0_CTRL = UART0_FUNC;
+
+    UART0_IBRD = 813;
+    UART0_FBRD = 51;
+
+    UART0_LCR_H = UART0_LCR_H_WLEN | UART0_LCR_H_FEN; // 8N1 8data, No parity, 1 stop bit, enable fifo
+
+    UART0_CR = UART0_CR_UARTEN | UART0_CR_TXE_EN;
+}
+
+void uart0_putc(char c)
+{
+    while ((UART0_FR & UART0_FR_TXFF) != 0)
+    {
+        // wait buffer full
+    }
+    UART0_DR = c;
+}
+
+void uart0_puts(const char *send)
+{
+
+    while (*send != '\0')
+    {
+        uart0_putc(*send);
+        send++;
+    }
+}
+
+void uart0_putnum(uint64_t num)
+{
+    if (num == 0)
+    {
+        uart0_putc('0');
+        return;
+    }
+    uint8_t buffer[20];
+    int index = 0;
+
+    while (num > 0)
+    {
+        buffer[index] = (num % 10) + '0';
+        num /= 10;
+        index++;
+    }
+
+    for (int i = index - 1; i >= 0; i--)
+    {
+        uart0_putc(buffer[i]);
+    }
+}
+
 void uart1_init(void)
 {
     UART1_CR = 0;
     GPIO4_CTRL = UART1_FUNC;
+    GPIO5_CTRL = UART1_FUNC;
 
     UART1_IBRD = 813; // for 9600 baud rate
     UART1_FBRD = 51;
@@ -98,7 +173,6 @@ void uart1_putc(char c)
 
 void uart1_puts(const char *send)
 {
-
     while (*send != '\0')
     {
         uart1_putc(*send);
@@ -131,35 +205,74 @@ int uart1_has_data(void)
 
 void set_param_config_tx(void)
 {
+    const char hex[] = "0123456789ABCDEF";
+    const uint8_t packet[6] = {
+        0xC0, // save configuration
+        0x00, // ADDH
+        0x01, // ADDL
+        0x1A, // SPED
+        0x17, // CHAN
+        0xC4  // OPTION
+    };
+
+    // M0 = 1, M1 = 1: configuration mode
     SIO_GPIO_OUT_SET = (1u << 6) | (1u << 7);
     delay_ms(50);
-    uint8_t packet[6] = {0xc0, 0x00, 0x01, 0x1a, 0x17, 0xc4};
 
+    uart1_write_bytes(packet, sizeof(packet));
+    delay_ms(100);
+
+    // C0 returns six acknowledgement bytes. Remove them before reading C1.
     for (int i = 0; i < 6; i++)
     {
-        uart1_putc(packet[i]);
+        while (!uart1_has_data())
+        {
+        }
+        (void)uart1_getc();
     }
-    delay_ms(50);
+
+    // Read the configuration that was just saved.
+    uart1_putc(0xC1);
+    uart1_putc(0xC1);
+    uart1_putc(0xC1);
+    delay_ms(200);
+
+    uart0_puts("TX CFG: ");
+    for (int i = 0; i < 100; i++)
+    {
+        if (uart1_has_data())
+        {
+            uint8_t value = (uint8_t)uart1_getc();
+            uart0_putc(hex[(value >> 4) & 0x0F]);
+            uart0_putc(hex[value & 0x0F]);
+            uart0_putc(' ');
+        }
+        delay_ms(5);
+    }
+    uart0_puts("\r\n");
+
+    // Back to normal mode
     SIO_GPIO_OUT_CLEAR = (1u << 6) | (1u << 7);
+    delay_ms(50);
 }
 
-void check_config_tx(void)
+void check_config_rx(void)
 {
     SIO_GPIO_OUT_SET = (1u << 6) | (1u << 7);
     delay_ms(50);
 
-    uart1_putc((char)0xC1);
-    uart1_putc((char)0xC1);
-    uart1_putc((char)0xC1);
+    uart1_putc(0xC1);
+    uart1_putc(0xC1);
+    uart1_putc(0xC1);
     delay_ms(200);
 
     uart0_puts("TX CFG: ");
     const char hex[] = "0123456789ABCDEF";
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 100; i++)
     {
         if (uart1_has_data())
         {
-            char c = uart1_getc();
+            uint8_t c = (uint8_t)uart1_getc();
             uart0_putc(hex[(c >> 4) & 0xF]);
             uart0_putc(hex[c & 0xF]);
             uart0_putc(' ');
@@ -168,4 +281,5 @@ void check_config_tx(void)
     uart0_puts("\r\n");
 
     SIO_GPIO_OUT_CLEAR = (1u << 6) | (1u << 7);
+    delay_ms(50);
 }

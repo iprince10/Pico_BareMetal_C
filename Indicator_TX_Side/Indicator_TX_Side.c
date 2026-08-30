@@ -12,13 +12,17 @@
 
 int main(void)
 {
+    lora_tx_init();
+    delay_ms(1000);
+    uart1_init();
     uart0_init();
     gpio3_init_input();
     gpio2_init_output();
-    lora_tx_init();
-    uart1_init();
-    set_param_config_tx();
-    check_config_tx();
+    uart0_puts("Ready\r\n");
+    // set_param_config_tx();
+    check_config_rx();
+
+    delay_ms(50);
 
     GPIO25_CTRL = GPIO_FUNC_SIO;
     SIO_GPIO_OE |= (1u << LED_PIN_25); // output enable for led pin gpio 25
@@ -95,7 +99,7 @@ int main(void)
             uart0_putc(' ');
         }
         uart0_puts("\r\n");
-        
+
         uart1_write_bytes(packet, 9);
 
         delay_ms(100); // let the module clear the air before the next cycle
