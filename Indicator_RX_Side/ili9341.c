@@ -47,6 +47,20 @@
 #define RESETS_RESET_SPI0 (1u << 16)
 #define RESETS_RESET_DONE (*(volatile uint32_t *)(RESETS_BASE + 0x8))
 
+#define TANK_X 60
+#define TANK_Y 70
+#define TANK_W 120
+#define TANK_H 200
+#define TANK_BORDER 2
+
+#define COLOR_WHITE 0xFFFF
+#define COLOR_BLACK 0x0000
+#define COLOR_WATER 0x001F // blue
+#define COLOR_EMPTY 0xC618 // light gray, distinguishes empty tank from bare background
+
+#define FULL_CM 20
+#define EMPTY_CM 150
+
 void ili9341_init();
 void spi0_init();
 void ili9341_hw_reset();
@@ -55,6 +69,7 @@ void ili9341_write_command(uint8_t cmd);
 void ili9341_write_data(uint8_t data);
 void ili9341_send_init_commands();
 void ili9341_fill_white(void);
+static int find_index_char(char c);
 void ili9341_draw_char(uint16_t x, uint16_t y, char c, uint16_t fg_color, uint16_t bg_color, uint8_t scale);
 void ili9341_draw_string(uint16_t x, uint16_t y, const char *str, uint16_t fg_color, uint16_t bg_color, uint8_t scale);
 
@@ -66,6 +81,10 @@ void display_redraw_all(void);
 
 char screen_lines[8][32]; // 8 reading slots , 32 chars each
 uint8_t line_count = 0;   // slots filled
+
+void draw_tank_border(void);
+static void percent_to_str(uint8_t percent, char *out);
+void update_tank_gauge(uint8_t percent);
 
 void ili9341_init()
 {
@@ -180,65 +199,46 @@ void ili9341_fill_white(void)
     }
 }
 
-void ili9341_draw_char(uint16_t x, uint16_t y, char c, uint16_t fg_color, uint16_t bg_color, uint8_t scale)
+static int find_index_char(char c)
 {
     int index;
+
     if (c >= '0' && c <= '9')
-    {
         index = c - '0';
-    }
+
     else if (c >= 'A' && c <= 'Z')
-    {
         index = c - 'A' + 10;
-    }
+
     else if (c >= 'a' && c <= 'z')
-    {
         index = c - 'a' + 36;
-    }
-    else if (c == ',')
-    {
-        index = 62;
-    }
-    else if (c == '.')
-    {
-        index = 63;
-    }
-    else if (c == ':')
-    {
-        index = 64;
-    }
-    else if (c == ';')
-    {
-        index = 65;
-    }
-    else if (c == '"')
-    {
-        index = 66;
-    }
-    else if (c == '/')
-    {
-        index = 67;
-    }
-    else if (c == '\\')
-    {
-        index = 68;
-    }
-    else if (c == '|')
-    {
-        index = 69;
-    }
-    else if (c == '(')
-    {
-        index = 70;
-    }
-    else if (c == ')')
-    {
-        index = 71;
-    }
+
     else
     {
-        return;
+        const char special[] = ",.:;\"/\\|()% ";
+        const char *p = special;
+
+        while (*p && *p != c)
+        {
+            p++;
+        }
+
+        if (!*p)
+        {
+            return -1;
+        }
+
+        index = 62 + (p - special);
     }
+
+    return index;
+}
+
+void ili9341_draw_char(uint16_t x, uint16_t y, char c, uint16_t fg_color, uint16_t bg_color, uint8_t scale)
+{
+    int index = find_index_char(c); // get index from the bitmap of the current character
+
+    if (index < 0)
+        return;
 
     uint16_t width = 10 * scale;
     uint16_t height = 14 * scale;
@@ -369,8 +369,36 @@ void format_distance(char *buff, uint32_t distance)
 
 void display_init_log(void)
 {
-    ili9341_draw_string(4, 4, "Distance:)", 0x0000, 0xffff, 2);
-    ili9341_fill_area(4, 310, 232, 4, 0x0000);
+    uint16_t cursor_x = 2;
+    uint16_t cursor_y = 4;
+    uint16_t char_width = 10 * 2;
+    uint16_t char_height = 14 * 2;
+    uint16_t x_spacing = 1;
+    uint16_t y_spacing = 2;
+
+    const char *str = "TANK WATER%"; // header text
+
+    while (*str)
+    {
+        if (*str == '\n')
+        {
+            cursor_x = 1;
+            cursor_y += char_height + y_spacing;
+        }
+        else if (*str == ' ')
+        {
+            ili9341_draw_char(cursor_x, cursor_y, *str, COLOR_WATER, 0xffff, 2);
+            cursor_x += char_width + x_spacing;
+        }
+        else
+        {
+            ili9341_draw_char(cursor_x, cursor_y, *str, COLOR_WATER, 0xffff, 2);
+            cursor_x += char_width + x_spacing;
+        }
+        str++;
+    }
+
+    ili9341_fill_area(4, 310, 232, 4, COLOR_WATER); // bottom line
 }
 
 void display_add_line(const char *str)
@@ -409,12 +437,7 @@ void display_add_line(const char *str)
         }
         screen_lines[7][k] = '\0';
 
-        ili9341_fill_area(0, 36, 240, 256, 0xffff);
-
-        for (int i = 0; i < 8; i++)
-        {
-            ili9341_draw_string(4, 36 + (i * 32), screen_lines[i], 0x0000, 0xffff, 2);
-        }
+        display_redraw_all();
     }
 }
 
@@ -426,4 +449,75 @@ void display_redraw_all(void)
     {
         ili9341_draw_string(4, 36 + (i * 32), screen_lines[i], 0x0000, 0xffff, 2);
     }
+}
+
+void draw_tank_border(void)
+{
+    // slightly larger black rect first, then a smaller gray rect inside it —
+    // the visible black edge left over is the border, no separate strips needed
+    ili9341_fill_area(TANK_X - TANK_BORDER, TANK_Y - TANK_BORDER,
+                      TANK_W + (TANK_BORDER * 2), TANK_H + (TANK_BORDER * 2),
+                      COLOR_BLACK);
+
+    ili9341_fill_area(TANK_X, TANK_Y, TANK_W, TANK_H, COLOR_EMPTY);
+}
+
+static void percent_to_str(uint8_t percent, char *out)
+{
+    int i = 0;
+    if (percent >= 100)
+    {
+        out[i++] = '1';
+        out[i++] = '0';
+        out[i++] = '0';
+    }
+    else if (percent >= 10)
+    {
+        out[i++] = '0' + (percent / 10);
+        out[i++] = '0' + (percent % 10);
+    }
+    else
+    {
+        out[i++] = '0' + percent;
+    }
+    out[i++] = '%';
+    out[i] = '\0';
+}
+
+void update_tank_gauge(uint8_t percent)
+{
+    if (percent > 100)
+    {
+        percent = 100;
+    }
+
+    uint16_t fill_h = (uint16_t)(((uint32_t)percent * TANK_H) / 100);
+    uint16_t fill_y = TANK_Y + (TANK_H - fill_h);
+
+    if (fill_h < TANK_H)
+    {
+        // empty portion: top of tank down to the water line
+        ili9341_fill_area(TANK_X, TANK_Y, TANK_W, TANK_H - fill_h, COLOR_EMPTY);
+    }
+    if (fill_h > 0)
+    {
+        // water portion: water line down to the bottom
+        ili9341_fill_area(TANK_X, fill_y, TANK_W, fill_h, COLOR_WATER);
+    }
+
+    char buff[6];
+    percent_to_str(percent, buff);
+
+    uint8_t len = 0;
+    while (buff[len] != '\0')
+        len++;
+
+    uint16_t text_w = (len * 22) - 2; // 20px per char (scale 2) + 2px spacing between chars
+    uint16_t text_h = 28;             // 14px char height * scale 2
+
+    uint16_t label_x = TANK_X + (TANK_W - text_w) / 2;
+    uint16_t label_y = TANK_Y + (TANK_H - text_h) / 2;
+
+    ili9341_fill_area(TANK_X + 20, label_y - 1, TANK_W - 40, text_h + 2, COLOR_WHITE);
+    ili9341_draw_string(label_x, label_y, buff, COLOR_BLACK, COLOR_WHITE, 2);
 }

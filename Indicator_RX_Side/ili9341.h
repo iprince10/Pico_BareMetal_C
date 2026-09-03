@@ -21,5 +21,8 @@ void display_redraw_all(void);
 extern char screen_lines[8][32]; // 8 reading slots , 32 chars each
 extern uint8_t line_count;   // slots filled
 
+void draw_tank_border(void);
+void update_tank_gauge(uint8_t percent);
+
 #endif
 

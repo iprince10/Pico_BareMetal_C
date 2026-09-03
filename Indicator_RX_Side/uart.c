@@ -39,6 +39,7 @@
 void uart0_init(void);
 void uart0_putc(char);
 void uart0_puts(const char *);
+void uart0_putnum(uint64_t num);
 
 void uart1_init(void);
 void uart1_putc(char c);
@@ -76,6 +77,29 @@ void uart0_puts(const char *send)
     {
         uart0_putc(*send);
         send++;
+    }
+}
+
+void uart0_putnum(uint64_t num)
+{
+    if (num == 0)
+    {
+        uart0_putc('0');
+        return;
+    }
+    uint8_t buffer[20];
+    int index = 0;
+
+    while (num > 0)
+    {
+        buffer[index] = (num % 10) + '0';
+        num /= 10;
+        index++;
+    }
+
+    for (int i = index - 1; i >= 0; i--)
+    {
+        uart0_putc(buffer[i]);
     }
 }
 
@@ -124,3 +148,9 @@ int uart1_has_data(void)
 {
     return (UART1_FR & UART1_FR_RXFE) == 0;
 }
+
+                // Print readable hex to serial monitor
+                // const char hex[] = "0123456789ABCDEF";
+                // uart0_putc(hex[(byte >> 4) & 0x0F]);
+                // uart0_putc(hex[byte & 0x0F]);
+                // uart0_putc(' ');

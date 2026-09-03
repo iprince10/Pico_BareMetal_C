@@ -4,6 +4,7 @@
 void uart0_init(void);
 void uart0_putc(char);
 void uart0_puts(const char *);
+void uart0_putnum(uint64_t num);
 
 void uart1_init(void);
 void uart1_putc(char c);

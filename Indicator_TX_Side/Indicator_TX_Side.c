@@ -4,7 +4,6 @@
 #include <sr04t.h>
 #include <lora_tx.h>
 
-
 #define IO_BANK0_BASE 0x40014000u
 #define SIO_BASE 0xd0000000u
 #define SIO_GPIO_OE (*(volatile uint32_t *)(SIO_BASE + 0x020))
@@ -21,7 +20,6 @@ int main(void)
     gpio3_init_input();
     gpio2_init_output();
     uart0_puts("Ready\r\n");
-    // set_param_config_tx();
     check_config_tx();
 
     delay_ms(50);
@@ -92,6 +90,8 @@ int main(void)
         uint8_t checksum = status ^ dist_hi ^ dist_lo;
         uint8_t packet[9] = {0x00, 0x02, 0x17, 0xAA, status, dist_hi, dist_lo, checksum, 0x55};
 
+        uart1_write_bytes(packet, 9);
+
         uart0_puts("PKT: ");
         for (int i = 0; i < 9; i++)
         {
@@ -101,8 +101,6 @@ int main(void)
             uart0_putc(' ');
         }
         uart0_puts("\r\n");
-
-        uart1_write_bytes(packet, 9);
 
         delay_ms(100); // let the module clear the air before the next cycle
         delay_ms(500); // wait between triggers
